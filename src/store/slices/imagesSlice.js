@@ -9,10 +9,17 @@ const imagesSlice = createSlice({
   initialState: imagesAdapter.getInitialState(),
   reducers: {
     imageAdded: imagesAdapter.addOne,
+    imagesAdded: imagesAdapter.addMany,
     imageUpdated: imagesAdapter.updateOne,
   },
 });
 
-export const { imageAdded, imageUpdated } = imagesSlice.actions;
+export const { imageAdded, imagesAdded, imageUpdated } = imagesSlice.actions;
+
+export const {
+  selectAll: selectAllImages,
+  selectById: selectImageById,
+  selectIds: selectImageIds,
+} = imagesAdapter.getSelectors((state) => state.images);
 
 export default imagesSlice.reducer;
