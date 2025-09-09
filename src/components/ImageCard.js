@@ -1,22 +1,20 @@
 import React from 'react';
 import { StyleSheet, Dimensions } from 'react-native';
-import FastImage from '@d11/react-native-fast-image';
+import { Image } from 'expo-image';
 
 const MARGIN = 2;
 const NUM_COLUMNS = 3;
 const TILE_DIMENSION = (Dimensions.get('window').width / NUM_COLUMNS) - (MARGIN * 2);
 
 const ImageCard = ({ item, index }) => {
-  const priority = index < 6 ? FastImage.priority.high : FastImage.priority.normal;
+  const priority = index < 6 ? 'high' : 'normal';
 
   return (
-    <FastImage
+    <Image
       style={styles.thumbnail}
-      source={{
-        uri: item.uri,
-        priority: priority,
-      }}
-      resizeMode={FastImage.resizeMode.cover}
+      source={item.uri}
+      priority={priority}
+      contentFit="cover"
     />
   );
 };
