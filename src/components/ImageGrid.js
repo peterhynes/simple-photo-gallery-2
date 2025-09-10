@@ -1,69 +1,104 @@
-import React from 'react';
-import { View, StyleSheet, Dimensions, Button, Alert } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, StyleSheet, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useSelector, useDispatch } from 'react-redux';
-import { selectAllImages, imageAdded } from '../store/slices/imagesSlice';
+import { selectAllImages, imagesAdded } from '../store/slices/imagesSlice';
 import ImageCard from './ImageCard';
-import * as ImagePicker from 'expo-image-picker';
-import 'react-native-get-random-values';
-import { v4 as uuidv4 } from 'uuid';
+import * as MediaLibrary from 'expo-media-library';
 
 const NUM_COLUMNS = 3;
 const TILE_DIMENSION = Dimensions.get('window').width / NUM_COLUMNS;
+const PAGE_SIZE = 21;
 
 const ImageGrid = () => {
   const images = useSelector(selectAllImages);
   const dispatch = useDispatch();
 
-  const handleAddImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission required', 'You need to grant permission to access the photo library.');
+  const [permissionResponse, requestPermission] = MediaLibrary.usePermissions();
+  const [hasNextPage, setHasNextPage] = useState(true);
+  const [endCursor, setEndCursor] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const loadMoreAssets = useCallback(async () => {
+    if (loading || loadingMore || !hasNextPage) {
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 1,
+    setLoadingMore(true);
+
+    const assets = await MediaLibrary.getAssetsAsync({
+      mediaType: 'photo',
+      sortBy: 'creationTime',
+      first: PAGE_SIZE,
+      after: endCursor,
     });
 
-    if (!result.canceled) {
-      const newImage = { id: uuidv4(), uri: result.assets[0].uri };
-      dispatch(imageAdded(newImage));
-    }
+    dispatch(imagesAdded(assets.assets));
+    setEndCursor(assets.endCursor);
+    setHasNextPage(assets.hasNextPage);
+    setLoadingMore(false);
+  }, [dispatch, endCursor, hasNextPage, loading, loadingMore]);
+
+  useEffect(() => {
+    const getInitialAssets = async () => {
+      setLoading(true);
+      const assets = await MediaLibrary.getAssetsAsync({
+        mediaType: 'photo',
+        sortBy: 'creationTime',
+        first: PAGE_SIZE,
+      });
+      dispatch(imagesAdded(assets.assets));
+      setEndCursor(assets.endCursor);
+      setHasNextPage(assets.hasNextPage);
+      setLoading(false);
+    };
+
+    const checkPermissionsAndLoad = async () => {
+      if (!permissionResponse) return;
+
+      if (permissionResponse.status === 'granted') {
+        getInitialAssets();
+      } else if (permissionResponse.canAskAgain) {
+        const { status } = await requestPermission();
+        if (status === 'granted') {
+          getInitialAssets();
+        }
+      } else {
+        Alert.alert(
+          'Permission Required',
+          'The app needs permission to access your photos. Please grant permission in your device settings.'
+        );
+      }
+    };
+
+    checkPermissionsAndLoad();
+  }, [permissionResponse, requestPermission, dispatch]);
+
+  const renderFooter = () => {
+    if (!loadingMore) return null;
+    return <ActivityIndicator style={{ marginVertical: 20 }} />;
   };
 
-  const handleTakePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission required', 'You need to grant permission to use the camera.');
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      const newImage = { id: uuidv4(), uri: result.assets[0].uri };
-      dispatch(imageAdded(newImage));
-    }
-  };
+  if (loading && images.length === 0) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <View style={styles.buttonContainer}>
-        <Button title="Add Image" onPress={handleAddImage} />
-        <Button title="Take Photo" onPress={handleTakePhoto} />
-      </View>
       <FlashList
         data={images}
         renderItem={({ item, index }) => <ImageCard item={item} index={index} />}
         keyExtractor={(item) => item.id}
         numColumns={NUM_COLUMNS}
         estimatedItemSize={TILE_DIMENSION}
+        onEndReached={loadMoreAssets}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={renderFooter}
       />
     </View>
   );
@@ -74,10 +109,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginVertical: 10,
+  center: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

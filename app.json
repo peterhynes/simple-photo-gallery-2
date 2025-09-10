@@ -24,15 +24,6 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "The app needs access to your photos to let you add them to your gallery.",
-          "cameraPermission": "The app needs access to your camera to let you take photos and add them to your gallery."
-        }
-      ]
-    ]
+    }
   }
 }
