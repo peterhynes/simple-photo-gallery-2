@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useSelector, useDispatch } from 'react-redux';
@@ -15,13 +15,17 @@ const ImageGrid = () => {
   const dispatch = useDispatch();
 
   const [permissionResponse, requestPermission] = MediaLibrary.usePermissions();
-  const [hasNextPage, setHasNextPage] = useState(true);
-  const [endCursor, setEndCursor] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  const paginationInfo = useRef({
+    endCursor: null,
+    hasNextPage: true,
+  });
+
   const loadMoreAssets = useCallback(async () => {
-    if (loading || loadingMore || !hasNextPage) {
+    // Prevent multiple simultaneous requests
+    if (!paginationInfo.current.hasNextPage || loadingMore) {
       return;
     }
 
@@ -31,38 +35,43 @@ const ImageGrid = () => {
       mediaType: 'photo',
       sortBy: 'creationTime',
       first: PAGE_SIZE,
-      after: endCursor,
+      after: paginationInfo.current.endCursor,
     });
 
-    dispatch(imagesAdded(assets.assets));
-    setEndCursor(assets.endCursor);
-    setHasNextPage(assets.hasNextPage);
+    if (assets.assets.length > 0) {
+      dispatch(imagesAdded(assets.assets));
+      paginationInfo.current.endCursor = assets.endCursor;
+      paginationInfo.current.hasNextPage = assets.hasNextPage;
+    } else {
+      paginationInfo.current.hasNextPage = false;
+    }
+
     setLoadingMore(false);
-  }, [dispatch, endCursor, hasNextPage, loading, loadingMore]);
+  }, [dispatch, loadingMore]);
 
   useEffect(() => {
     const getInitialAssets = async () => {
-      setLoading(true);
       const assets = await MediaLibrary.getAssetsAsync({
         mediaType: 'photo',
         sortBy: 'creationTime',
         first: PAGE_SIZE,
       });
       dispatch(imagesAdded(assets.assets));
-      setEndCursor(assets.endCursor);
-      setHasNextPage(assets.hasNextPage);
-      setLoading(false);
+      paginationInfo.current.endCursor = assets.endCursor;
+      paginationInfo.current.hasNextPage = assets.hasNextPage;
+      setInitialLoading(false);
     };
 
     const checkPermissionsAndLoad = async () => {
       if (!permissionResponse) return;
 
+      setInitialLoading(true);
       if (permissionResponse.status === 'granted') {
-        getInitialAssets();
+        await getInitialAssets();
       } else if (permissionResponse.canAskAgain) {
         const { status } = await requestPermission();
         if (status === 'granted') {
-          getInitialAssets();
+          await getInitialAssets();
         }
       } else {
         Alert.alert(
@@ -70,6 +79,7 @@ const ImageGrid = () => {
           'The app needs permission to access your photos. Please grant permission in your device settings.'
         );
       }
+      setInitialLoading(false);
     };
 
     checkPermissionsAndLoad();
@@ -80,7 +90,7 @@ const ImageGrid = () => {
     return <ActivityIndicator style={{ marginVertical: 20 }} />;
   };
 
-  if (loading && images.length === 0) {
+  if (initialLoading) {
     return (
       <View style={[styles.container, styles.center]}>
         <ActivityIndicator />
