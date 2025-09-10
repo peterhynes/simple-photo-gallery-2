@@ -1,18 +1,10 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Provider, useDispatch } from 'react-redux';
+import { Provider } from 'react-redux';
 import { store } from './store/store';
 import ImageGrid from './components/ImageGrid';
-import { imagesAdded } from './store/slices/imagesSlice';
-import { mockImages } from './mockData';
 
 function AppContent() {
-  const dispatch = useDispatch();
-
-  useEffect(() => {
-    dispatch(imagesAdded(mockImages));
-  }, [dispatch]);
-
   return (
     <View style={styles.container}>
       <ImageGrid />

@@ -1,7 +1,7 @@
 import { createSlice, createEntityAdapter } from '@reduxjs/toolkit';
 
 const imagesAdapter = createEntityAdapter({
-  selectId: (image) => image.uri,
+  selectId: (image) => image.id,
 });
 
 const imagesSlice = createSlice({
