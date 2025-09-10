@@ -87,7 +87,7 @@ const ImageGrid = () => {
     checkPermissionsAndLoad();
   }, [permissionResponse, requestPermission, dispatch]);
 
-  const openViewer = (index) => {
+  const openViewer = useCallback((index) => {
     // Preload surrounding images
     const urisToPreload = [];
     for (let i = -PRELOAD_WINDOW; i <= PRELOAD_WINDOW; i++) {
@@ -103,7 +103,7 @@ const ImageGrid = () => {
 
     setCurrentImageIndex(index);
     setIsViewerVisible(true);
-  };
+  }, [viewerImages]);
 
   const closeViewer = () => {
     setIsViewerVisible(false);
@@ -113,6 +113,14 @@ const ImageGrid = () => {
     if (!loadingMore) return null;
     return <ActivityIndicator style={{ marginVertical: 20 }} />;
   };
+
+  const renderItem = useCallback(({ item, index }) => (
+    <ImageCard
+      item={item}
+      index={index}
+      onPress={() => openViewer(index)}
+    />
+  ), [openViewer]);
 
   if (initialLoading) {
     return (
@@ -126,13 +134,7 @@ const ImageGrid = () => {
     <View style={styles.container}>
       <FlashList
         data={images}
-        renderItem={({ item, index }) => (
-          <ImageCard
-            item={item}
-            index={index}
-            onPress={() => openViewer(index)}
-          />
-        )}
+        renderItem={renderItem}
         keyExtractor={(item) => item.id}
         numColumns={NUM_COLUMNS}
         estimatedItemSize={TILE_DIMENSION}
