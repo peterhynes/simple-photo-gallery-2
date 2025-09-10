@@ -19,7 +19,8 @@
     "react": "19.0.0",
     "react-native": "0.79.6",
     "react-native-image-viewing": "^0.2.2",
-    "react-redux": "^9.2.0"
+    "react-redux": "^9.2.0",
+    "expo-dev-client": "~5.2.4"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"
