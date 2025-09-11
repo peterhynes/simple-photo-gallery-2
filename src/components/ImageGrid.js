@@ -1,17 +1,16 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, StyleSheet, Dimensions, Alert, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Dimensions, Alert, ActivityIndicator, Modal } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useSelector, useDispatch } from 'react-redux';
 import { selectAllImages, imagesAdded } from '../store/slices/imagesSlice';
 import ImageCard from './ImageCard';
 import * as MediaLibrary from 'expo-media-library';
-import ImageViewing from 'react-native-image-viewing';
+import GallerySwiper from 'react-native-gallery-swiper';
 import FastImage from '@d11/react-native-fast-image';
 
 const NUM_COLUMNS = 3;
 const TILE_DIMENSION = Dimensions.get('window').width / NUM_COLUMNS;
 const PAGE_SIZE = 21;
-const PRELOAD_WINDOW = 2; // Preload 2 images before and 2 after the current one
 
 const ImageGrid = () => {
   const images = useSelector(selectAllImages);
@@ -29,10 +28,9 @@ const ImageGrid = () => {
     hasNextPage: true,
   });
 
-  const viewerImages = useMemo(() => images.map(img => ({ uri: img.uri })), [images]);
+  const viewerImages = useMemo(() => images.map(img => ({ url: img.uri })), [images]);
 
   const loadMoreAssets = useCallback(async () => {
-    // ... (rest of the function is unchanged)
     if (!paginationInfo.current.hasNextPage || loadingMore) {
       return;
     }
@@ -54,7 +52,6 @@ const ImageGrid = () => {
   }, [dispatch, loadingMore]);
 
   useEffect(() => {
-    // ... (rest of the hook is unchanged)
     const getInitialAssets = async () => {
       const assets = await MediaLibrary.getAssetsAsync({
         mediaType: 'photo',
@@ -88,22 +85,9 @@ const ImageGrid = () => {
   }, [permissionResponse, requestPermission, dispatch]);
 
   const openViewer = useCallback((index) => {
-    // Preload surrounding images
-    const urisToPreload = [];
-    for (let i = -PRELOAD_WINDOW; i <= PRELOAD_WINDOW; i++) {
-      if (i === 0) continue; // Don't preload the current image
-      const preloadIndex = index + i;
-      if (preloadIndex >= 0 && preloadIndex < viewerImages.length) {
-        urisToPreload.push({ uri: viewerImages[preloadIndex].uri });
-      }
-    }
-    if (urisToPreload.length > 0) {
-      FastImage.preload(urisToPreload);
-    }
-
     setCurrentImageIndex(index);
     setIsViewerVisible(true);
-  }, [viewerImages]);
+  }, []);
 
   const closeViewer = () => {
     setIsViewerVisible(false);
@@ -121,6 +105,16 @@ const ImageGrid = () => {
       onPress={() => openViewer(index)}
     />
   ), [openViewer]);
+
+  const renderImage = useCallback((imageProps) => {
+    return (
+      <FastImage
+        {...imageProps}
+        style={StyleSheet.absoluteFillObject}
+        resizeMode={FastImage.resizeMode.contain}
+      />
+    );
+  }, []);
 
   if (initialLoading) {
     return (
@@ -142,12 +136,17 @@ const ImageGrid = () => {
         onEndReachedThreshold={0.5}
         ListFooterComponent={renderFooter}
       />
-      <ImageViewing
-        images={viewerImages}
-        imageIndex={currentImageIndex}
-        visible={isViewerVisible}
-        onRequestClose={closeViewer}
-      />
+      <Modal visible={isViewerVisible} transparent={true} onRequestClose={closeViewer}>
+        <GallerySwiper
+          images={viewerImages}
+          initialPage={currentImageIndex}
+          onPageSelected={page => setCurrentImageIndex(page)}
+          onEndReached={loadMoreAssets}
+          imageComponent={renderImage}
+          onSingleTapConfirmed={closeViewer}
+          style={{ flex: 1, backgroundColor: 'black' }}
+        />
+      </Modal>
     </View>
   );
 };
